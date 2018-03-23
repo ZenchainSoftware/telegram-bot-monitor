@@ -1,0 +1,19 @@
+{
+  "name": "telegram-bot-monitor",
+  "description": "Telegram Bot Monitor",
+  "version": "0.0.1",
+  "author": "Zenchain",
+  "private": true,
+  "dependencies": {
+    "@types/node": "^9.4.6",
+    "@types/reflect-metadata": "^0.1.0",
+    "mysql": "^2.15.0",
+    "pg": "^7.4.1",
+    "reflect-metadata": "^0.1.12",
+    "telegraf": "^3.19.0",
+    "ts-node": "^5.0.1",
+    "typeorm": "^0.1.16",
+    "typescript": "^2.7.2",
+    "typescript-collections": "^1.3.2"
+  }
+}
