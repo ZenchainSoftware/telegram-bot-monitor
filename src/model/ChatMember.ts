@@ -29,4 +29,7 @@ export class ChatMember {
 
    @Column()
    joinDate: number;
+
+   @Column()
+   warning: number;   
 };
