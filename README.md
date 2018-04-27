@@ -88,6 +88,6 @@ To run the service, you first need to download the source code, install dependen
 5.	Start the service by running the command in the root folder:
 
 	```
-	node node_modules\ts-node\dist\bin.js src/bot.ts
+	node node_modules/ts-node/dist/bin.js src/bot.ts
 	```
 

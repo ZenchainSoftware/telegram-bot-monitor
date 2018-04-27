@@ -1,80 +1,93 @@
 export const environment = {
-  database: {
-    hostname: 'localhost',
-    port: 3306,
-    database: 'database name',
-    username: 'database user',
-    password: 'database password'
+  "database": {
+    "hostname": "database host",
+    "port": 3306,
+    "database": "database name",
+    "username": "database user",
+    "password": "database password"
   },
-  botToken: 'bot token',
-  chatId: 'chat id',
-  checkMemberInterval: '15000', // miliseconds
-  validChars: /[^\x20-\x7E]+/g,
-  rules : {
-    checkAdmin: {
-      validate: true,
-      banUser: true
+  "botToken": "bot token",
+  "chatId": "chat id",
+  "checkMemberInterval": 5000,
+  "rules": {
+    "checkAdmin": {
+      "validate": true,
+      "banUser": true
     },
-    checkKeyword: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkBadWord": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     },
-    checkRegex: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkWalletAddress": {
+      "validate": true,
+      "removeMessage": true,
+      "banUser": 1
     },
-    checkWalletAddress: {
-      validate: true,
-      removeMessage: true,
-      banUser: false
+    "checkAudio": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     },
-    checkAudio: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkVideo": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     },
-    checkVideo: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkImage": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     },
-    checkImage: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkUrl": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     },
-    checkUrl: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
-    },
-    checkAnyFile: {
-      validate: true,
-      removeMessage: true,
-      banUser: true
+    "checkAnyFile": {
+      "validate": false,
+      "removeMessage": false,
+      "banUser": -1
     }
   },
-  badWords: [
-    /(test|badword)/gi
+  "badWords": "",
+  "urlRegex": "(http|https):",
+  "walletAddress": [
+    "(\\b0x[a-f0-9]{40,}\\b)",
+    "(\\b[0-9a-z]{34,}\\b)"
   ],
-  urlRegex: /(http|https):\/\//i,  
-  walletAddress: [
-      /(\b0x[a-f0-9]{40}\b)/i,      
-      /(\b[0-9a-z]{34}\b)/i,         
-      /^5[HJK][0-9A-Za-z&&[^0OIl]]{49}/, 
-      /(\b[0-9a-z]{64}\b)/i,         
-  ],
-  userWarnings: 2,	
-  replyMessages: {
-    inappropriateContent: 'The message has been deleted because it contained inappropriate content',
-    ethAddress: 'The message has been deleted because it contained Wallet address or private key',
-    image: 'The message has been deleted because it contained image',
-    video: 'The message has been deleted because it contained video',
-    audio: 'The message has been deleted because it contained audio',
-    url: 'The message has been deleted because it contained external link (url)',
-    warning: 'Do not post messages with inappropriate content, Wallet address, audio, video or image. You will be banned if you post such message again' 
+  "replyMessages": {
+    "badLanguage": "The message has been deleted because it contained inappropriate message",
+    "walletKey": "The message has been deleted because it contained Wallet address or private key",
+    "image": "The message has been deleted because it contained image",
+    "video": "The message has been deleted because it contained video",
+    "audio": "The message has been deleted because it contained audio",
+    "url": "The message has been deleted because it contained external link (url)",
+    "userWarning": "Do not post messages with inappropriate content, Wallet address, audio, video or image. You will be banned if you post such message again",
   },
-  displayMessages: true
-};
+  "configurationMessages": [
+    "!checkMemberInterval",
+    "!checkAdminRule",
+    "!checkBadLanguageRule",
+    "!checkWalletKeyRule",
+    "!checkAudioRule",
+    "!checkImageRule",
+    "!checkVideoRule",
+    "!checkOtherFileRule",
+    "!checkUrlRule",
+    "!badWords",
+    "!walletKeyPattern",
+    "!replyMessage"
+  ],
+  "replyMessageTypes": [
+    "walletKey",
+    "image",
+    "audio",
+    "video",
+    "otherFile",
+    "url",
+    "badLanguage",
+    "userWarning"
+  ],
+  "displayMessages": true,
+}

@@ -1,38 +1,45 @@
 import "reflect-metadata"
 import { createConnection, Entity, Column, getManager } from "typeorm"
 import * as Telegraf from "telegraf"
+import { BotConfigurator } from "../bot-processor/bot-configurator"
 import { ChatMember } from "../model/ChatMember"
 import { MemberHistory } from "../model/MemberHistory"
-import { environment } from "../environments/environment"
 
 
 export class BotProcessor {
 
     private botApiProcessor
+    private botConfigurator
     private dbConnection
     private chatAdmins
+    private chatId
+
+    constructor() {
+        this.botConfigurator = new BotConfigurator()      
+        this.chatId = this.botConfigurator.getConfiguration().chatId 
+    }
 
     public start() {
         this.connectToDatabase()
      
-        this.botApiProcessor = new Telegraf(environment.botToken)
+        this.botApiProcessor = new Telegraf(this.botConfigurator.getConfiguration().botToken)
         
         this.botApiProcessor.on('new_chat_members', (ctx) => this.addMember(ctx.message))
         this.botApiProcessor.on('left_chat_member', (ctx) => this.removeMember(ctx.message))
 
-        if (environment.rules.checkImage.validate) {
-            this.botApiProcessor.on('photo', (ctx) => this.processMultimediaMessage(ctx.message, 'image'))
+        if (this.botConfigurator.getConfiguration().rules.checkImage.validate) {
+            this.botApiProcessor.on('photo', (ctx) => this.processMultimediaMessage(ctx.message, 'Image'))
         }
-        if (environment.rules.checkVideo.validate) {
-            this.botApiProcessor.on('video', (ctx) => this.processMultimediaMessage(ctx.message, 'video'))
+        if (this.botConfigurator.getConfiguration().rules.checkVideo.validate) {
+            this.botApiProcessor.on('video', (ctx) => this.processMultimediaMessage(ctx.message, 'Video'))
             this.botApiProcessor.on('video_note', (ctx) => this.processMultimediaMessage(ctx.message, 'video'))
         }        
-        if (environment.rules.checkAudio.validate) {
-            this.botApiProcessor.on('voice', (ctx) => this.processMultimediaMessage(ctx.message, 'voice'))
-            this.botApiProcessor.on('audio', (ctx) => this.processMultimediaMessage(ctx.message, 'audio'))
+        if (this.botConfigurator.getConfiguration().rules.checkAudio.validate) {
+            this.botApiProcessor.on('voice', (ctx) => this.processMultimediaMessage(ctx.message, 'Audio'))
+            this.botApiProcessor.on('audio', (ctx) => this.processMultimediaMessage(ctx.message, 'Audio'))
         }
 
-        if (environment.rules.checkWalletAddress.validate || environment.rules.checkRegex.validate || environment.rules.checkKeyword.validate || environment.rules.checkKeyword.validate) {
+        if (this.botConfigurator.getConfiguration().rules.checkWalletAddress.validate || this.botConfigurator.getConfiguration().rules.checkBadWord.validate || this.botConfigurator.getConfiguration().rules.checkBadWord.validate || this.botConfigurator.getConfiguration().rules.checkBadWord.validate) {
             this.botApiProcessor.on('message', (ctx) => this.processMessage(ctx.message))
         }
         
@@ -44,11 +51,11 @@ export class BotProcessor {
 		
         var checkMemeberInterval = setInterval(() =>
             this.checkMembers()    
-        , environment.checkMemberInterval); 
+        , this.botConfigurator.getConfiguration().checkMemberInterval); 
     }        
 
     private processMessage(message) {
-        console.log('Chat ' + environment.chatId + ' - Received message: ' + JSON.stringify(message, null, 2))
+        console.log('Chat ' + this.chatId+ ' - Received message: ' + JSON.stringify(message, null, 2))
 
         let adminMessage = false
 
@@ -58,132 +65,134 @@ export class BotProcessor {
             }
         })
 
+        let messageToCheck = message.text ? message.text.replace(this.botConfigurator.getConfiguration().validChars, "") : ''
+        
         if (!adminMessage) {
 
             let banMember = false
-            let banImmediately = false
             let reason = ''
+            let messageType = ''
             let messageToSend = ''
             let warningToSend = ''
-            let messageToCheck = message.text ? message.text.replace(environment.validChars, "") : ''
 
-            if (environment.displayMessages) {
-                console.log('Chat ' + environment.chatId + ' - ' + 'Check message: ' + messageToCheck)
+            if (this.botConfigurator.getConfiguration().displayMessages) {
+                console.log('Chat ' + this.chatId+ ' - ' + 'Check message: ' + messageToCheck)
             }
 
-            if (environment.rules.checkWalletAddress.validate) {
-                environment.walletAddress.forEach(address => {
-                    if (address.test(messageToCheck)) {
-                        if (environment.displayMessages) {
-                            console.log('Chat ' + environment.chatId + ' - ' + 'Wallet address detected: ' + messageToCheck)
+            if (this.botConfigurator.getConfiguration().rules.checkWalletAddress.validate) {
+                this.botConfigurator.getConfiguration().walletAddress.forEach(address => {
+                    let pattern = new RegExp(address, "gi")
+                    if (pattern.test(messageToCheck)) {
+                        if (this.botConfigurator.getConfiguration().displayMessages) {
+                            console.log('Chat ' + this.chatId+ ' - ' + 'Wallet address detected: ' + messageToCheck)
                         }                        
 
-                        if (environment.rules.checkWalletAddress.banUser) {
+                        if (this.botConfigurator.getConfiguration().rules.checkWalletAddress.banUser != -1) {
                             banMember = true    
-                            banImmediately = true
+                            messageType = "WalletKey"
                         }
-                        if (environment.rules.checkWalletAddress.removeMessage) {
-                            reason = 'Banned for posting Wallet address'
-                            messageToSend = environment.replyMessages.ethAddress
+                        if (this.botConfigurator.getConfiguration().rules.checkWalletAddress.removeMessage) {
+                            reason = 'Removed message for posting Wallet address'
+                            messageToSend = this.botConfigurator.getConfiguration().replyMessages.walletKey
                         }
                     }
                 })
             }
 
-            if (environment.rules.checkUrl.validate) {
-                console.log('Chat ' + environment.chatId + ' - ' + 'Check URL')
+            if (this.botConfigurator.getConfiguration().rules.checkUrl.validate) {
+                console.log('Chat ' + this.chatId+ ' - ' + 'Check URL')
                 let messageEntitiesExist = message.entities ? true : false
 
-                let pattern = new RegExp(environment.urlRegex)
+                let pattern = new RegExp(this.botConfigurator.getConfiguration().urlRegex, "gi")
+                console.log(pattern)
                 let match = pattern.test(messageToCheck)
 
                 if (messageEntitiesExist) {
                     message.entities.forEach(entity => {
                         if (entity.type == 'url') {
-                            if (environment.displayMessages) {
-                                console.log('Chat ' + environment.chatId + ' - ' + 'URL detected: ' + messageToCheck)
+                            if (this.botConfigurator.getConfiguration().displayMessages) {
+                                console.log('Chat ' + this.chatId+ ' - ' + 'URL detected: ' + messageToCheck)
                             }                        
-                            if (environment.rules.checkWalletAddress.banUser) {
+                            if (this.botConfigurator.getConfiguration().rules.checkUrl.banUser != -1) {
                                 banMember = true        
-                                banImmediately = false
+                                messageType = "Url"
                             }
-                            if (environment.rules.checkWalletAddress.removeMessage) {
-                                messageToSend = environment.replyMessages.url                        
+                            if (this.botConfigurator.getConfiguration().rules.checkUrl.removeMessage) {
+                                messageToSend = this.botConfigurator.getConfiguration().replyMessages.url                        
                             }
                         }
                     })    
                 } else if (match){
-                    if (environment.displayMessages) {
-                        console.log('Chat ' + environment.chatId + ' - ' + 'URL detected: ' + messageToCheck)
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + 'URL detected: ' + messageToCheck)
                     }                        
-                    if (environment.rules.checkUrl.banUser) {
+                    if (this.botConfigurator.getConfiguration().rules.checkUrl.banUser != -1) {
                         banMember = true        
-                        banImmediately = false
+                        messageType = "Url"
                     }
-                    if (environment.rules.checkUrl.removeMessage) {
-                        messageToSend = environment.replyMessages.url  
+                    if (this.botConfigurator.getConfiguration().rules.checkUrl.removeMessage) {
+                        messageToSend = this.botConfigurator.getConfiguration().replyMessages.url  
                     }                                  
                 }
             }
             
-            if (environment.rules.checkRegex.validate) {
-                environment.badWords.forEach(regexRule => {
-                    console.log('Chat ' + environment.chatId + ' - ' + 'Check ' + messageToCheck + ' for ' + regexRule)
-                    let pattern = new RegExp(regexRule)
-                    let match = pattern.test(messageToCheck)
+            if (this.botConfigurator.getConfiguration().rules.checkBadWord.validate) {
+                let regexRule = this.botConfigurator.getConfiguration().badWords
+                console.log('Chat ' + this.chatId+ ' - ' + 'Check ' + messageToCheck + ' for ' + regexRule)
+                let pattern = new RegExp(regexRule, "gi")
+                let match = pattern.test(messageToCheck)
 
-                    if (match === true) {
-                        if (environment.displayMessages) {
-                            console.log('Chat ' + environment.chatId + ' - ' + messageToCheck + ' matches ' + regexRule)
-                        }                            
+                if (match === true) {
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + messageToCheck + ' matches ' + regexRule)
+                    }                            
 
-                        reason = 'Banned for posting inappropriate content (bad language)'
-                        if (environment.rules.checkRegex.banUser) {
-                            banMember = true        
-                            banImmediately = false
-                        }        
-                        if (environment.rules.checkRegex.removeMessage) {
-                            messageToSend = environment.replyMessages.inappropriateContent
-                            warningToSend = environment.replyMessages.warning
-                        }
+                    reason = 'Removed message for posting inappropriate content (bad language)'
+                    if (this.botConfigurator.getConfiguration().rules.checkBadWord.banUser != -1) {
+                        banMember = true        
+                        messageType = "BadWord"
+                    }        
+                    if (this.botConfigurator.getConfiguration().rules.checkBadWord.removeMessage) {
+                        messageToSend = this.botConfigurator.getConfiguration().replyMessages.badLanguage
+                        warningToSend = this.botConfigurator.getConfiguration().replyMessages.userWarning
                     }
-                })    
+                }
             }
 
-            if (environment.rules.checkVideo.validate || environment.rules.checkAudio.validate || environment.rules.checkImage.validate || environment.rules.checkAnyFile.validate) {
+            if (this.botConfigurator.getConfiguration().rules.checkVideo.validate || this.botConfigurator.getConfiguration().rules.checkAudio.validate || this.botConfigurator.getConfiguration().rules.checkImage.validate || this.botConfigurator.getConfiguration().rules.checkAnyFile.validate) {
                 let documentExists = (message.document) ? true : false
 
                 if (documentExists === true) {
                     let documentType = message.document.mime_type.substring(0, 5)
 
                     if (documentType == 'image') { 
-                        if (environment.rules.checkImage.banUser) {
+                        if (this.botConfigurator.getConfiguration().rules.checkImage.banUser != -1) {
                             banMember = true        
-                            banImmediately = false
+                            messageType = "Image"
                         }
-                        if (environment.rules.checkImage.removeMessage) {
-                            messageToSend = environment.replyMessages.image
-                            warningToSend = environment.replyMessages.warning
+                        if (this.botConfigurator.getConfiguration().rules.checkImage.removeMessage) {
+                            messageToSend = this.botConfigurator.getConfiguration().replyMessages.image
+                            warningToSend = this.botConfigurator.getConfiguration().replyMessages.userWarning
                         }                            
                     }
-                    if (documentType == 'audio' && environment.rules.checkAudio.banUser) {
-                        if (environment.rules.checkAudio.banUser) {
+                    if (documentType == 'audio') {
+                        if (this.botConfigurator.getConfiguration().rules.checkAudio.banUser != -1) {
                             banMember = true        
-                            banImmediately = false
+                            messageType = "Audio"
                         }
-                        if (environment.rules.checkAudio.removeMessage) {
-                            messageToSend = environment.replyMessages.audio
-                            warningToSend = environment.replyMessages.warning
+                        if (this.botConfigurator.getConfiguration().rules.checkAudio.removeMessage) {
+                            messageToSend = this.botConfigurator.getConfiguration().replyMessages.audio
+                            warningToSend = this.botConfigurator.getConfiguration().replyMessages.userWarning
                         }                            
                     }
-                    if (documentType == 'video' && environment.rules.checkVideo.banUser) {
-                        if (environment.rules.checkVideo.banUser) {
+                    if (documentType == 'video') {
+                        if (this.botConfigurator.getConfiguration().rules.checkVideo.banUser != -1) {
                             banMember = true        
-                            banImmediately = false
+                            messageType = "Video"
                         }
-                        if (environment.rules.checkVideo.removeMessage) {
-                            messageToSend = environment.replyMessages.video
-                            warningToSend = environment.replyMessages.warning
+                        if (this.botConfigurator.getConfiguration().rules.checkVideo.removeMessage) {
+                            messageToSend = this.botConfigurator.getConfiguration().replyMessages.video
+                            warningToSend = this.botConfigurator.getConfiguration().replyMessages.userWarning
                         }                            
                     }
                 }
@@ -203,16 +212,30 @@ export class BotProcessor {
                 }
 
                 if (banMember) {
-                    this.banOrWarnMember(banMemberData, banImmediately)                                        
+                    this.banOrWarnMember(banMemberData, messageType)                                        
                 }
                 if (messageToSend !== '') {
                     this.removeMessage(banMemberData, messageToSend, warningToSend)                        
                 }
             }
         } else {
-            if (environment.displayMessages) {
-                console.log('Chat ' + environment.chatId + ' - ' + 'Message from Admin to be skipped: ' + JSON.stringify(message, null, 2))
-            }            
+            let configMessage = false
+            this.botConfigurator.getConfiguration().configurationMessages.forEach(config => {
+                if (message.text.toLowerCase().startsWith(config.toLowerCase())) {
+                    configMessage = true
+                }
+            })
+
+            if (configMessage) {
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Process Configuration Message: ' + JSON.stringify(message, null, 2))
+                }            
+                this.botConfigurator.processConfigurationMessage(messageToCheck);
+            } else {
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Message from Admin to be skipped: ' + JSON.stringify(message, null, 2))
+                }            
+            }
         }
     }
 
@@ -226,47 +249,42 @@ export class BotProcessor {
         })
         
         if (!adminMessage) {
-            if (environment.displayMessages) {
-  			    console.log('Chat ' + environment.chatId + ' - ' + 'Multimedia message received: ' + JSON.stringify(message, null, 2))
+            if (this.botConfigurator.getConfiguration().displayMessages) {
+  			    console.log('Chat ' + this.chatId+ ' - ' + 'Multimedia message received: ' + JSON.stringify(message, null, 2))
             }
         
-
             let banMember = false        
-            let banImmediately = false
             let messageToSend = ''
             let reason = ''
 
-            if (messageType == 'audio') {
-                if (environment.rules.checkAudio.banUser) {
+            if (messageType == 'Audio') {
+                if (this.botConfigurator.getConfiguration().rules.checkAudio.banUser != -1) {
                     banMember = true        
-                    banImmediately = false
                 }    
-                if (environment.rules.checkAudio.removeMessage) {
+                if (this.botConfigurator.getConfiguration().rules.checkAudio.removeMessage) {
                     reason = 'Banned for posting inappropriate content (audio)'
-                    messageToSend = environment.replyMessages.audio          
+                    messageToSend = this.botConfigurator.getConfiguration().replyMessages.audio          
                 }  
-            } else if (messageType == 'video') {
-                if (environment.rules.checkVideo.banUser) {
+            } else if (messageType == 'Video') {
+                if (this.botConfigurator.getConfiguration().rules.checkVideo.banUser != -1) {
                     banMember = true        
-                    banImmediately = false
                 }    
-                if (environment.rules.checkVideo.removeMessage) {
+                if (this.botConfigurator.getConfiguration().rules.checkVideo.removeMessage) {
                     reason = 'Banned for posting inappropriate content (video)'
-                    messageToSend = environment.replyMessages.video          
+                    messageToSend = this.botConfigurator.getConfiguration().replyMessages.video          
                 }  
-            } else if (messageType == 'image') {
-                if (environment.rules.checkImage.banUser) {
+            } else if (messageType == 'Image') {
+                if (this.botConfigurator.getConfiguration().rules.checkImage.banUser != -1) {
                     banMember = true        
-                    banImmediately = false
                 }    
-                if (environment.rules.checkImage.removeMessage) {
+                if (this.botConfigurator.getConfiguration().rules.checkImage.removeMessage) {
                     reason = 'Banned for posting inappropriate content (image)'
-                    messageToSend = environment.replyMessages.image          
+                    messageToSend = this.botConfigurator.getConfiguration().replyMessages.image          
                 }  
             }    
 
             if (banMember || messageToSend) {
-                let warningToSend = environment.replyMessages.warning
+                let warningToSend = this.botConfigurator.getConfiguration().replyMessages.userWarning
                 
                 let banMemberData = {
                     chatId: message.chat.id,
@@ -281,7 +299,7 @@ export class BotProcessor {
                 }
 
                 if (banMember) {
-                    this.banOrWarnMember(banMemberData, banImmediately) 
+                    this.banOrWarnMember(banMemberData, messageType) 
                 }
 
                 if (messageToSend) {
@@ -289,26 +307,28 @@ export class BotProcessor {
                 }                    
             }
         } else {
-            if (environment.displayMessages) {
-                console.log('Chat ' + environment.chatId + ' - ' + 'Message from Admin to be skipped: ' + message.text)
+            if (this.botConfigurator.getConfiguration().displayMessages) {
+                console.log('Chat ' + this.chatId+ ' - ' + 'Message from Admin to be skipped: ' + message.text)
             }                        
         }
     }
     
     private addMember(message) {
-		if (environment.displayMessages) {
-			console.log('Chat ' + environment.chatId + ' - ' + 'New member: ' + JSON.stringify(message, null, 2))
+		if (this.botConfigurator.getConfiguration().displayMessages) {
+			console.log('Chat ' + this.chatId+ ' - ' + 'New member: ' + JSON.stringify(message, null, 2))
 		}
 
         this.dbConnection.getRepository(MemberHistory).findOne({chatMemberId: message.new_chat_member.id, status: 'banned'}).then(memberDetails => {
             if (memberDetails && message.chat.type == 'group') {
                     let untilDate = Math.ceil(Date.now() / 1000 + 10)
-                    this.botApiProcessor.telegram.kickChatMember(environment.chatId, message.new_chat_member.id, untilDate).then(details => { 
-                        if (environment.displayMessages) {
-                            console.log('Chat ' + environment.chatId + ' - ' + 'Member trying to join is kicked from group as it was already banned. ' + JSON.stringify(details, null, 2)) 
+                    this.botApiProcessor.telegram.kickChatMember(this.botConfigurator.getConfiguration().chatId, message.new_chat_member.id, untilDate).then(details => { 
+                        if (this.botConfigurator.getConfiguration().displayMessages) {
+                            console.log('Chat ' + this.chatId+ ' - ' + 'Member trying to join is kicked from group as it was already banned. ' + JSON.stringify(details, null, 2)) 
                         }
-                    })
-            } else {
+                    }).catch(function(e) {
+                        console.log('Chat ' + this.chatId+ ' - ' + e);
+                    })    
+                    } else {
                 let newChatMember = new ChatMember();
                 newChatMember.chatId = message.chat.id;
                 newChatMember.chatMemberId = message.new_chat_member.id;
@@ -321,8 +341,8 @@ export class BotProcessor {
                 newChatMember.status = 'active';
                 newChatMember.warning = 0;
                 
-                if (environment.displayMessages) {
-                    console.log('Chat ' + environment.chatId + ' - ' + 'Add new member ' + newChatMember.chatMemberId + ', ' + newChatMember.chatMemberFirstName + ' ' + newChatMember.chatMemberLastName);
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Add new member ' + newChatMember.chatMemberId + ', ' + newChatMember.chatMemberFirstName + ' ' + newChatMember.chatMemberLastName);
                 }
                 
                 this.dbConnection.getRepository(ChatMember).save(newChatMember);
@@ -342,8 +362,10 @@ export class BotProcessor {
                 
                 this.addMemberHistory(memberData)                
             }
+        }).catch(function(e) {
+            console.log('Chat ' + this.chatId+ ' - ' + e);
         })    
-            
+        
     
     }
     
@@ -365,8 +387,8 @@ export class BotProcessor {
     }
 
     private removeMember(message) {
-        if (environment.displayMessages) {
-			console.log('Chat ' + environment.chatId + ' - ' + 'Remove chat member ' + 
+        if (this.botConfigurator.getConfiguration().displayMessages) {
+			console.log('Chat ' + this.chatId+ ' - ' + 'Remove chat member ' + 
                      message.left_chat_member.id + ', ' + 
                      message.left_chat_member.first_name + ' ' + 
                      ((message.left_chat_member.last_name) ? message.left_chat_member.last_name : ''))
@@ -393,7 +415,7 @@ export class BotProcessor {
     private userShouldBeBanned (member): boolean {
         let result = false
 
-        if (environment.rules.checkAdmin.validate) {
+        if (this.botConfigurator.getConfiguration().rules.checkAdmin.validate) {
 			let skipMember = false
             let adminNames = []
 			
@@ -415,9 +437,9 @@ export class BotProcessor {
 			})	
 		
 			if (!skipMember) {
-                let memberFirstName = member.first_name.toLowerCase().replace(/\W/g, '').replace(environment.validChars, "")
-                let memberLastName = (member.last_name) ? member.last_name.toLowerCase().replace(/\W/g, '').replace(environment.validChars, "") : ''
-                let memberUserName = (member.username) ? member.username.toLowerCase().replace(/\W/g, '').replace(environment.validChars, "") : ''
+                let memberFirstName = member.first_name.toLowerCase().replace(/\W/g, '').replace(this.botConfigurator.getConfiguration().validChars, "")
+                let memberLastName = (member.last_name) ? member.last_name.toLowerCase().replace(/\W/g, '').replace(this.botConfigurator.getConfiguration().validChars, "") : ''
+                let memberUserName = (member.username) ? member.username.toLowerCase().replace(/\W/g, '').replace(this.botConfigurator.getConfiguration().validChars, "") : ''
                     
                 let memberNames = []
                     
@@ -431,9 +453,6 @@ export class BotProcessor {
                 let nameMatch = false
                 memberNames.forEach(memberName => {
                     adminNames.forEach(adminName => {
-                        if (environment.displayMessages) {
-                           	console.log('Chat ' + environment.chatId + ' - ' + 'Is ' + memberName + ' equal to ' + adminName)
-                        }
                         if (memberName == adminName) {
                             nameMatch = true
                         }
@@ -441,8 +460,8 @@ export class BotProcessor {
                 })
 					
 				if (nameMatch) {   
-					if (environment.displayMessages) {
-						console.log('Chat ' + environment.chatId + ' - ' + 'It is')
+					if (this.botConfigurator.getConfiguration().displayMessages) {
+						console.log('Chat ' + this.chatId+ ' - ' + 'It is')
 					}
 					result = true    
 				}   
@@ -454,14 +473,14 @@ export class BotProcessor {
     private checkMember(member) {
 		
         let memberData = this.botApiProcessor.telegram.getChat(member.chatMemberId).then(details => { 
-			if (environment.displayMessages) {
-				console.log('Chat ' + environment.chatId + ' - ' + 'Check member: ' + member.chatMemberId + ' ' + member.chatMemberFirstName + ' ' + member.chatMemberLastName + ' ' + member.chatMemberUserName);
-				console.log('Chat ' + environment.chatId + ' - ' + JSON.stringify(details, null, 2))
+			if (this.botConfigurator.getConfiguration().displayMessages) {
+				console.log('Chat ' + this.chatId+ ' - ' + 'Check member: ' + member.chatMemberId + ' ' + member.chatMemberFirstName + ' ' + member.chatMemberLastName + ' ' + member.chatMemberUserName);
+				console.log('Chat ' + this.chatId+ ' - ' + JSON.stringify(details, null, 2))
 			}
 			
-            if (this.userShouldBeBanned(details) === true && environment.rules.checkAdmin.banUser) {
-                if (environment.displayMessages) {
-					console.log('Chat ' + environment.chatId + ' - ' + 'Remove Member: ' + 
+            if (this.userShouldBeBanned(details) === true && this.botConfigurator.getConfiguration().rules.checkAdmin.banUser) {
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+					console.log('Chat ' + this.chatId+ ' - ' + 'Remove Member: ' + 
                             member.chatMemberId + ', ' + 
                             details.first_name + ' ' + 
                             ((details.last_name) ? details.last_name : '') + ' ' + 
@@ -479,69 +498,119 @@ export class BotProcessor {
                     reason: 'Banned for impersonating Administrator'
                 }
 
-                this.banOrWarnMember(banMemberData, true)
+                this.banOrWarnMember(banMemberData, 'Admin')
             }
         } ).catch(function(e) {
-            console.log('Chat ' + environment.chatId + ' - ' + 'Member ' + member.chatMemberFirstName + ' ' + member.chatMemberLastName + ' does not exist');
+            console.log('Member ' + member.chatMemberFirstName + ' ' + member.chatMemberLastName + ' does not exist');
         })           
     }
 
     private removeMessage(message, messageToSend, warningToSend) {
-        if (environment.displayMessages) {
-            console.log('Chat ' + environment.chatId + ' - ' + 'Delete message ' + message.messageId) 
+        if (this.botConfigurator.getConfiguration().displayMessages) {
+            console.log('Chat ' + this.chatId+ ' - ' + 'Delete message ' + message.messageId) 
         }
 
-        this.botApiProcessor.telegram.deleteMessage(environment.chatId, message.messageId).then(details => { 
-            if (environment.displayMessages) {
-                console.log('Chat ' + environment.chatId + ' - ' + JSON.stringify(details, null, 2)) 
+        this.botApiProcessor.telegram.deleteMessage(this.botConfigurator.getConfiguration().chatId, message.messageId).then(details => { 
+            if (this.botConfigurator.getConfiguration().displayMessages) {
+                console.log('Chat ' + this.chatId+ ' - ' + JSON.stringify(details, null, 2)) 
             }
 
             let memberIdentifier = '@' + message.chatMemberFirstName + ' ' + message.chatMemberLastName + (message.chatMemberUserName ? ('(' + message.chatMemberUserName + ')') : '')
             
             if (messageToSend !== '') {                
-                if (environment.displayMessages) {
-                    console.log('Chat ' + environment.chatId + ' - ' + 'Send message ' + memberIdentifier + ', ' + messageToSend) 
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Send message ' + memberIdentifier + ', ' + messageToSend) 
                 }
-                this.botApiProcessor.telegram.sendMessage(environment.chatId, memberIdentifier + ', ' + messageToSend).then(details => { 
-                    if (environment.displayMessages) {
-                        console.log('Chat ' + environment.chatId + ' - ' + JSON.stringify(details, null, 2)) 
+                this.botApiProcessor.telegram.sendMessage(this.botConfigurator.getConfiguration().chatId, memberIdentifier + ', ' + messageToSend).then(details => { 
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + JSON.stringify(details, null, 2)) 
                     }
-                })                
-            }
+                }).catch(function(e) {
+                    console.log('Chat ' + this.chatId+ ' - ' + e);
+                })    
+                }
 
             if (warningToSend !== '') {
-                if (environment.displayMessages) {
-                    console.log('Chat ' + environment.chatId + ' - ' + 'Send message ' + memberIdentifier + ', ' + warningToSend) 
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Send message ' + memberIdentifier + ', ' + warningToSend) 
                 }
-                this.botApiProcessor.telegram.sendMessage(environment.chatId, memberIdentifier + ', ' + warningToSend).then(details => { 
-                    if (environment.displayMessages) {
-                        console.log('Chat ' + environment.chatId + ' - ' + JSON.stringify(details, null, 2)) 
+                this.botApiProcessor.telegram.sendMessage(this.botConfigurator.getConfiguration().chatId, memberIdentifier + ', ' + warningToSend).then(details => { 
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + JSON.stringify(details, null, 2)) 
                     }
-                })                
+                }).catch(function(e) {
+                    console.log('Chat ' + this.chatId+ ' - ' + e);
+                })    
             }
             
-        })
-    }
+        }).catch(function(e) {
+            console.log('Chat ' + this.chatId+ ' - ' + e);
+        })    
+}
 
-    private banOrWarnMember(member, banImmediately) {
+    private banOrWarnMember(member, messageType) {        
         this.dbConnection.getRepository(ChatMember).findOneById(member.chatMemberId).then(memberDetails => {
 
             if (memberDetails) {
+                let banImmediately = -1
+                let allowedValue = 0
 
-                if (banImmediately === false && memberDetails.warning < environment.userWarnings) {
-                    if (environment.displayMessages) {
-                        console.log('Chat ' + environment.chatId + ' - ' + 'Warn member for displaying inappropriate content') 
+                switch (messageType) {
+                    case "Admin":
+                        banImmediately = 0
+                        allowedValue = 0
+                        memberDetails.warning++
+                        break
+                    case "WalletKey":
+                        banImmediately = memberDetails.warningWalletKey
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkWalletAddress.banUser
+                        memberDetails.warningWalletKey++
+                        break
+                    case "BadWord":
+                        banImmediately = memberDetails.warningBadWord
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkBadWord.banUser
+                        memberDetails.warningBadWord++
+                        break
+                    case "Audio":
+                        banImmediately = memberDetails.warningAudio
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkAudio.banUser
+                        memberDetails.warningAudio++
+                        break
+                    case "Video":
+                        banImmediately = memberDetails.warningVideo
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkVideo.banUser
+                        memberDetails.warningVideo++
+                        break
+                    case "Image":
+                        banImmediately = memberDetails.warningImage
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkImage.banUser
+                        memberDetails.warningImage++
+                        break
+                    case "AnyFile":
+                        banImmediately = memberDetails.warningAnyFile
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkAnyFile.banUser
+                        memberDetails.warningAnyFile++
+                        break
+                    case "Url":
+                        banImmediately = memberDetails.warningUrl
+                        allowedValue = this.botConfigurator.getConfiguration().rules.checkUrl.banUser
+                        memberDetails.warningUrl++
+                        break
+                }
+
+                if (banImmediately == -1 || banImmediately < allowedValue) {
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + 'Warn member for displaying inappropriate content') 
                     }
-                    memberDetails.warning++
                     this.dbConnection.getRepository(ChatMember).save(memberDetails);
                 } else {
-                    if (environment.displayMessages) {
-                        console.log('Chat ' + environment.chatId + ' - ' + 'Kick member from group. ') 
+                    if (this.botConfigurator.getConfiguration().displayMessages) {
+                        console.log('Chat ' + this.chatId+ ' - ' + 'Kick member from group. ') 
                     }
                     let untilDate = Math.ceil(Date.now() / 1000 + 10)
-                    this.botApiProcessor.telegram.kickChatMember(environment.chatId, member.chatMemberId, untilDate).then(details => { 
-                        if (environment.displayMessages) {
-                            console.log('Chat ' + environment.chatId + ' - ' + 'Member kicked from group. ' + JSON.stringify(details, null, 2)) 
+                    this.botApiProcessor.telegram.kickChatMember(this.botConfigurator.getConfiguration().chatId, member.chatMemberId, untilDate).then(details => { 
+                        if (this.botConfigurator.getConfiguration().displayMessages) {
+                            console.log('Chat ' + this.chatId+ ' - ' + 'Member kicked from group. ' + JSON.stringify(details, null, 2)) 
                         }
                                 
                         this.dbConnection.getRepository(ChatMember).removeById(member.chatMemberId);
@@ -556,37 +625,45 @@ export class BotProcessor {
                             status: 'banned',
                             chatMemberUserName: details.username ? details.username : '',            
                             isAdmin: memberDetails.isAdmin,
-                            reason: 'Banned for impersonating Administrator'
+                            reason: 'Banned for posting too many inappropriate messages'
                         }
                         
                         this.addMemberHistory(memberData)        
-                    })					
-                }
+                    }).catch(function(e) {
+                        console.log('Chat ' + this.chatId+ ' - ' + e);
+                    })    
+                        }
             }    
-        })
-    }
+        }).catch(function(e) {
+            console.log('Chat ' + this.chatId+ ' - ' + e);
+        })    
+}
 
     private checkMembers() {
-        if (this.dbConnection) {
-            if (environment.displayMessages) {
-				console.log('Chat ' + environment.chatId + ' - ' + 'Check Members')
-			}
-			this.getAdmins(true)	
-            let membersData = this.dbConnection.getRepository('ChatMember')
-            membersData.find().then(members => {
-                members.forEach(member => {
-                    this.checkMember(member)
-                });   
-            })                      
-        } else {
-            if (environment.displayMessages) {
-				console.log('Chat ' + environment.chatId + ' - ' + 'Database connection not established yet')   
-			}
+        if (this.botConfigurator.getConfiguration().rules.checkAdmin.validate) {
+            if (this.dbConnection) {
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Check Members')
+                }
+                this.getAdmins(true)	
+                let membersData = this.dbConnection.getRepository('ChatMember')
+                membersData.find().then(members => {
+                    members.forEach(member => {
+                        this.checkMember(member)
+                    });   
+                }).catch(function(e) {
+                    console.log('Chat ' + this.chatId+ ' - ' + e);
+                })    
+            } else {
+                if (this.botConfigurator.getConfiguration().displayMessages) {
+                    console.log('Chat ' + this.chatId+ ' - ' + 'Database connection not established yet')   
+                }
+            }
         }
     }
 
 	private getAdmins(display) {
-		this.botApiProcessor.telegram.getChatAdministrators(environment.chatId).then(adminsData => { 
+		this.botApiProcessor.telegram.getChatAdministrators(this.botConfigurator.getConfiguration().chatId).then(adminsData => { 
 			this.chatAdmins = []
 			adminsData.forEach(admin => {
 				this.chatAdmins.push({
@@ -597,31 +674,34 @@ export class BotProcessor {
 				})
 			})  
 			if (display) {
-				if (environment.displayMessages) {
-					console.log('Chat ' + environment.chatId + ' - ' + 'Current Admins')		
-					console.log('Chat ' + environment.chatId + ' - ' + JSON.stringify(this.chatAdmins, null, 2))		
+				if (this.botConfigurator.getConfiguration().displayMessages) {
+					console.log('Chat ' + this.chatId+ ' - ' + 'Current Admins')		
+					console.log('Chat ' + this.chatId+ ' - ' + JSON.stringify(this.chatAdmins, null, 2))		
 				}
 			}
-		})		
-		
+        }).catch(function(e) {
+            console.log('Chat ' + this.chatId+ ' - ' + e);
+        })    
+    
 	}
     private connectToDatabase() {
         createConnection({
             type: 'mysql',
-            host: environment.database.hostname,
-            username: environment.database.username,
-            password: environment.database.password,
-            database: environment.database.database,
-            port: environment.database.port,
+            host: this.botConfigurator.getConfiguration().database.hostname,
+            username: this.botConfigurator.getConfiguration().database.username,
+            password: this.botConfigurator.getConfiguration().database.password,
+            database: this.botConfigurator.getConfiguration().database.database,
+            port: this.botConfigurator.getConfiguration().database.port,
+            insecureAuth : true,
             entities: [ChatMember, MemberHistory]
         }).then( connection => {
             this.dbConnection = connection 
-            if (environment.displayMessages) {
-			   console.log('Chat ' + environment.chatId + ' - ' + 'Successfully connected to database')
+            if (this.botConfigurator.getConfiguration().displayMessages) {
+			   console.log('Chat ' + this.chatId+ ' - ' + 'Successfully connected to database')
 		    }
         }).catch(function(e) {
-            console.log('Chat ' + environment.chatId + ' - ' + 'Unable to connect to database');
-            console.log('Chat ' + environment.chatId + ' - ' + 'Exiting..');
+            console.log('Unable to connect to database, ' + e);
+            console.log('Exiting..');
 			process.exit()
         })           
     }

@@ -19,7 +19,7 @@
 -- Table structure for table `chatmembers`
 --
 
-DROP TABLE IF EXISTS `chatmembers`;
+DROP TABLE IF EXISTS `chatMembers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `chatmembers` (
@@ -41,7 +41,7 @@ CREATE TABLE `chatmembers` (
 -- Table structure for table `membershistory`
 --
 
-DROP TABLE IF EXISTS `membershistory`;
+DROP TABLE IF EXISTS `membersHistory`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `membershistory` (

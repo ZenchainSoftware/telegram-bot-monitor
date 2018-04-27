@@ -32,4 +32,27 @@ export class ChatMember {
 
    @Column()
    warning: number;   
+
+   @Column()
+   warningBadWord: number;   
+
+   @Column()
+   warningWalletKey: number;   
+
+   @Column()
+   warningImage: number;   
+
+   @Column()
+   warningAudio: number;   
+
+   @Column()
+   warningVideo: number;   
+
+   @Column()
+   warningAnyFile: number;   
+
+   @Column()
+   warningUrl: number;   
+
+   
 };
