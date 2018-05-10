@@ -486,7 +486,6 @@ export class BotProcessor {
                 this.banOrWarnMember(banMemberData, 'Admin')
             }
         } ).catch(function(e) {
-            this.botMessage.displayMessage(`Member ${member.chatMemberFirstName} ${member.chatMemberLastName} does not exist`);
         })           
     }
 
