@@ -8,46 +8,46 @@ export const environment = {
   },
   "botToken": "bot token",
   "chatId": "chat id",
-  "checkMemberInterval": 5000,
+  "checkMemberInterval": "5000",
   "rules": {
     "checkAdmin": {
-      "validate": true,
-      "banUser": true
+      "validate": false,
+      "banUser": "0"
     },
     "checkBadWord": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     },
-    "checkWalletAddress": {
+    "checkWalletKey": {
       "validate": true,
       "removeMessage": true,
-      "banUser": 1
+      "banUser": "1"
     },
     "checkAudio": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     },
     "checkVideo": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     },
     "checkImage": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     },
     "checkUrl": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     },
     "checkAnyFile": {
       "validate": false,
       "removeMessage": false,
-      "banUser": -1
+      "banUser": "-1"
     }
   },
   "badWords": "",
@@ -57,37 +57,13 @@ export const environment = {
     "(\\b[0-9a-z]{34,}\\b)"
   ],
   "replyMessages": {
-    "badLanguage": "The message has been deleted because it contained inappropriate message",
+    "inappropriateContent": "The message has been deleted because it contained inappropriate message",
     "walletKey": "The message has been deleted because it contained Wallet address or private key",
     "image": "The message has been deleted because it contained image",
     "video": "The message has been deleted because it contained video",
     "audio": "The message has been deleted because it contained audio",
     "url": "The message has been deleted because it contained external link (url)",
-    "userWarning": "Do not post messages with inappropriate content, Wallet address, audio, video or image. You will be banned if you post such message again",
+    "warning": "Do not post messages with inappropriate content, Wallet address, audio, video or image. You will be banned if you post such message again"
   },
-  "configurationMessages": [
-    "!checkMemberInterval",
-    "!checkAdminRule",
-    "!checkBadLanguageRule",
-    "!checkWalletKeyRule",
-    "!checkAudioRule",
-    "!checkImageRule",
-    "!checkVideoRule",
-    "!checkOtherFileRule",
-    "!checkUrlRule",
-    "!badWords",
-    "!walletKeyPattern",
-    "!replyMessage"
-  ],
-  "replyMessageTypes": [
-    "walletKey",
-    "image",
-    "audio",
-    "video",
-    "otherFile",
-    "url",
-    "badLanguage",
-    "userWarning"
-  ],
-  "displayMessages": true,
+  "displayMessages": false,
 }
