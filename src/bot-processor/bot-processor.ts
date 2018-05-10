@@ -719,14 +719,14 @@ export class BotProcessor {
                 ]).resize())
 
         this.botApiProcessor.hears(/menu/i, (ctx) => {    
-            if (this.isAdminMessage(ctx.message)) {  
+            if (this.isAdminMessage(ctx.message) && ctx.message.chat.id != this.chatId) {  
                 this.lastConfigRule = ''
                 ctx.reply('Configuration Menu', configurationMenu)
             }
         });
 
         this.botApiProcessor.hears(/help/i, (ctx) => {    
-            if (this.isAdminMessage(ctx.message)) {  
+            if (this.isAdminMessage(ctx.message) && ctx.message.chat.id != this.chatId) {  
                 this.lastConfigRule = ''
                 ctx.reply("https://zenchain.com/telegram-bot-guide/")
             }
