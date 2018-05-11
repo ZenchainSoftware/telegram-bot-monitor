@@ -16,13 +16,13 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `chatmembers`
+-- Table structure for table `chatMembers`
 --
 
 DROP TABLE IF EXISTS `chatMembers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `chatmembers` (
+CREATE TABLE `chatMembers` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `chatId` varchar(100) DEFAULT NULL,
   `chatMemberId` int(11) DEFAULT NULL,
@@ -32,19 +32,27 @@ CREATE TABLE `chatmembers` (
   `isAdmin` tinyint(1) DEFAULT NULL,
   `isBot` tinyint(1) DEFAULT NULL,
   `status` varchar(10) DEFAULT NULL,
+  `warning` tinyint(1) default 0,
+  `warningBadWord` tinyint(1) default 0,
+  `warningWalletKey` tinyint(1) default 0,
+  `warningAudio` tinyint(1) default 0,
+  `warningVideo` tinyint(1) default 0,
+  `warningImage` tinyint(1) default 0,
+  `warningAnyFile` tinyint(1) default 0,
+  `warningUrl` tinyint(1) default 0,
   `joinDate` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `membershistory`
+-- Table structure for table `membersHistory`
 --
 
 DROP TABLE IF EXISTS `membersHistory`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `membershistory` (
+CREATE TABLE `membersHistory` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `chatId` varchar(100) DEFAULT NULL,
   `chatMemberId` int(11) DEFAULT NULL,
