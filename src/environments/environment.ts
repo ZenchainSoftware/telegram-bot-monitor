@@ -1,17 +1,35 @@
 export const environment = {
   "database": {
-    "hostname": "localhost",
-    "port": 3306,
-    "database": "zenchain_bot",
-    "username": "zenchain_bot_user",
-    "password": "strong_password"
+    "mysql": {
+      "type": "mysql",
+      "hostname": "localhost",
+      "port": 3306,
+      "database": "zenchain_bot",
+      "username": "zenchain_bot_user",
+      "password": "strong_password",
+      "insecureAuth": true,
+      "entities": [
+        null,
+        null
+      ]
+    },
+    "sqlite": {
+      "type": "sqlite",
+      "database": "zenchain_bot_sqlite.db",
+      "insecureAuth": true,
+      "entities": [
+        null,
+        null
+      ]
+    },
+    "useDatabase": "sqlite"
   },
   "botToken": "555584786:AAGCQHeBuid5YvkX8LBcS2ySJ7KqhEHdiIc",
   "chatId": "-294145247",
   "checkMemberInterval": "5000",
   "rules": {
     "checkAdmin": {
-      "validate": false,
+      "validate": true,
       "banUser": "0"
     },
     "checkBadWord": {
@@ -25,7 +43,7 @@ export const environment = {
       "banUser": "5"
     },
     "checkAudio": {
-      "validate": false,
+      "validate": true,
       "removeMessage": false,
       "banUser": "-1"
     },
@@ -58,13 +76,13 @@ export const environment = {
   ],
   "userWarnings": 2,
   "replyMessages": {
-    "inappropriateContent": "Do not post banned words",
+    "inappropriateContent": "The message has been deleted because it contained inappropriate message",
     "walletKey": "The message has been deleted because it contained Wallet address or private key",
     "image": "The message has been deleted because it contained image",
     "video": "The message has been deleted because it contained video",
     "audio": "The message has been deleted because it contained audio",
     "url": "The message has been deleted because it contained external link (url)",
-    "warning": "You are getting banned for sure"
+    "warning": "Do not post messages with inappropriate content, Wallet address, audio, video or image. You will be banned if you post such message again"
   },
   "displayMessages": true,
   "validChars": {}

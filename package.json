@@ -10,6 +10,7 @@
     "mysql": "^2.15.0",
     "pg": "^7.4.1",
     "reflect-metadata": "^0.1.12",
+    "sqlite3": "^4.0.0",
     "telegraf": "^3.19.0",
     "ts-node": "^5.0.1",
     "typeorm": "^0.1.16",

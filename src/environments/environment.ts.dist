@@ -1,17 +1,25 @@
 export const environment = {
   "database": {
-    "hostname": "database host",
-    "port": 3306,
-    "database": "database name",
-    "username": "database user",
-    "password": "database password"
+    "mysql": {
+      "type": "mysql",
+      "hostname": "database host",
+      "port": 3306,
+      "database": "database name",
+      "username": "database user",
+      "password": "database password"
+    },
+    "sqlite": {
+      "type": "sqlite",
+      "database": "zenchain_bot_sqlite.db"
+    },
+    "useDatabase": "sqlite"
   },
   "botToken": "bot token",
   "chatId": "chat id",
   "checkMemberInterval": "5000",
   "rules": {
     "checkAdmin": {
-      "validate": false,
+      "validate": true,
       "banUser": "0"
     },
     "checkBadWord": {

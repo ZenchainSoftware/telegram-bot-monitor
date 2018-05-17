@@ -45,11 +45,11 @@ export class BotProcessor {
         })
     }        
 
-    private isAdminMessage(message) {
+    private isAdminMessage(memberId) {
         let adminMessage = false
 
         this.chatAdmins.forEach(admin => {
-            if (admin.id == message.from.id) {
+            if (admin.id == memberId) {
                 adminMessage = true
             }
         }) 
@@ -60,11 +60,13 @@ export class BotProcessor {
     private processMessage(message, ctx) {
         this.botMessage.displayMessage(`Received message: ${JSON.stringify(message, null, 2)}`)
 
-        let adminMessage = this.isAdminMessage(message)
+		this.memberExists(message)
+
+        let adminMessage = this.isAdminMessage(message.from.id)
 
         let messageToCheck = message.text ? message.text.replace(this.botConfigurator.getConfiguration().validChars, "") : ''
         
-        if (!adminMessage) {
+        if (!adminMessage) {						
             let banMember = false
             let reason = ''
             let messageType = ''
@@ -242,6 +244,7 @@ export class BotProcessor {
     }
 
     private processMultimediaMessage(message, messageType) {    
+		this.memberExists(message)
         
         let adminMessage = false
         
@@ -311,7 +314,14 @@ export class BotProcessor {
             this.botMessage.displayMessage(`Message from Admin to be skipped: ${message.text}`)
         }
     }
-    
+
+    private memberExists(message) {
+		message.new_chat_member = message.from
+		message.new_chat_member.date = message.date;
+		
+		this.addMember(message);
+	}
+	
     private addMember(message) {
 		this.botMessage.displayMessage(`New member: ${JSON.stringify(message, null, 2)}`)
 
@@ -718,21 +728,23 @@ export class BotProcessor {
                 ]).resize())
 
         this.botApiProcessor.hears(/menu/i, (ctx) => {    
-            if (this.isAdminMessage(ctx.message) && ctx.message.chat.id != this.chatId) {  
+            if (this.isAdminMessage(ctx.message.from.id) && ctx.message.chat.id != this.chatId) {  
                 this.lastConfigRule = ''
                 ctx.reply('Configuration Menu', configurationMenu)
             }
         });
 
         this.botApiProcessor.hears(/help/i, (ctx) => {    
-            if (this.isAdminMessage(ctx.message) && ctx.message.chat.id != this.chatId) {  
+            if (this.isAdminMessage(ctx.message.from.id) && ctx.message.chat.id != this.chatId) {  
                 this.lastConfigRule = ''
                 ctx.reply("https://zenchain.com/telegram-bot-guide/")
             }
         });
 
-        this.botApiProcessor.action('mainMenu', (ctx) => {    
-            ctx.reply('Configuration Menu', configurationMenu)
+        this.botApiProcessor.action('mainMenu', (ctx) => {   
+            if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                ctx.reply('Configuration Menu', configurationMenu)
+            }
         })
         
         checkRules.forEach(rule => {
@@ -763,228 +775,256 @@ export class BotProcessor {
                                     ]).resize())                
             }                        
             this.botApiProcessor.action(`${rule.type}`, (ctx) => {
-                this.lastConfigRule = ''
-                ctx.reply(rule.title, menus[rule.type])
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    ctx.reply(rule.title, menus[rule.type])
+                }
             })
 
             this.botApiProcessor.action(`${rule.type}RuleValidate`, (ctx) => {
-                let currentStatus = ''
-                let newStatus = ''
-    
-                if (this.botConfigurator.getConfiguration().rules[rule.type].validate) {
-                    currentStatus = 'Enabled'
-                    newStatus = 'Disable'  
-                } else {
-                    currentStatus = 'Disabled'
-                    newStatus = 'Enable'                  
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    let currentStatus = ''
+                    let newStatus = ''
+        
+                    if (this.botConfigurator.getConfiguration().rules[rule.type].validate) {
+                        currentStatus = 'Enabled'
+                        newStatus = 'Disable'  
+                    } else {
+                        currentStatus = 'Disabled'
+                        newStatus = 'Enable'                  
+                    }
+        
+                    let validateMenu = Telegraf.Extra
+                        .markdown()
+                        .markup((m) => m.inlineKeyboard([
+                            [m.callbackButton(`${newStatus}`, `${rule.type}RuleValidate${newStatus}`)],
+                            [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
+                        ]).resize());
+                
+                    this.lastConfigRule = ''
+                    ctx.reply(`Setting is ${currentStatus}`, validateMenu)
                 }
-    
-                let validateMenu = Telegraf.Extra
-                    .markdown()
-                    .markup((m) => m.inlineKeyboard([
-                        [m.callbackButton(`${newStatus}`, `${rule.type}RuleValidate${newStatus}`)],
-                        [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
-                    ]).resize());
-            
-                this.lastConfigRule = ''
-                ctx.reply(`Setting is ${currentStatus}`, validateMenu)
             })
             
             this.botApiProcessor.action(`${rule.type}RuleValidateEnable`, (ctx) => {
-                this.lastConfigRule = ''
-                if (this.botConfigurator.processValidationRule(rule.type, 'on')) {
-                    ctx.reply("Setting is set to Enabled")
-                } else {
-                    ctx.reply("Invalid value for Setting")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    if (this.botConfigurator.processValidationRule(rule.type, 'on')) {
+                        ctx.reply("Setting is set to Enabled")
+                    } else {
+                        ctx.reply("Invalid value for Setting")                    
+                    }
                 }
             })
         
             this.botApiProcessor.action(`${rule.type}RuleValidateDisable`, (ctx) => {
-                this.lastConfigRule = ''
-                if (this.botConfigurator.processValidationRule(rule.type, 'off')) {
-                    ctx.reply("Setting is set to Disabled")
-                } else {
-                    ctx.reply("Invalid value for Setting")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    if (this.botConfigurator.processValidationRule(rule.type, 'off')) {
+                        ctx.reply("Setting is set to Disabled")
+                    } else {
+                        ctx.reply("Invalid value for Setting")                    
+                    }
                 }
             })
 
             
             this.botApiProcessor.action(`${rule.type}RuleRemoveMessage`, (ctx) => {
-                let currentStatus = ''
-                let newStatus = ''
-    
-                if (this.botConfigurator.getConfiguration().rules[rule.type].removeMessage) {
-                    currentStatus = 'Enabled'
-                    newStatus = 'Disable'  
-                } else {
-                    currentStatus = 'Disabled'
-                    newStatus = 'Enable'                  
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    let currentStatus = ''
+                    let newStatus = ''
+        
+                    if (this.botConfigurator.getConfiguration().rules[rule.type].removeMessage) {
+                        currentStatus = 'Enabled'
+                        newStatus = 'Disable'  
+                    } else {
+                        currentStatus = 'Disabled'
+                        newStatus = 'Enable'                  
+                    }
+        
+                    let removeMessageMenu = Telegraf.Extra
+                        .markdown()
+                        .markup((m) => m.inlineKeyboard([
+                            [m.callbackButton(`${newStatus}`, `${rule.type}RuleRemoveMessage${newStatus}`)],
+                            [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
+                        ]).resize());
+                
+                    this.lastConfigRule = ''
+                    ctx.reply(`Remove Message Setting is ${currentStatus}`, removeMessageMenu)
                 }
-    
-                let removeMessageMenu = Telegraf.Extra
-                    .markdown()
-                    .markup((m) => m.inlineKeyboard([
-                        [m.callbackButton(`${newStatus}`, `${rule.type}RuleRemoveMessage${newStatus}`)],
-                        [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
-                    ]).resize());
-            
-                this.lastConfigRule = ''
-                ctx.reply(`Remove Message Setting is ${currentStatus}`, removeMessageMenu)
             })
             
             this.botApiProcessor.action(`${rule.type}RuleRemoveMessageEnable`, (ctx) => {
-                this.lastConfigRule = ''
-                if (this.botConfigurator.processRemoveMessageRule(rule.type, 'on')) {
-                    ctx.reply("Remove Message Setting is set to Enabled")
-                } else {
-                    ctx.reply("Invalid value for Remove Message Setting")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    if (this.botConfigurator.processRemoveMessageRule(rule.type, 'on')) {
+                        ctx.reply("Remove Message Setting is set to Enabled")
+                    } else {
+                        ctx.reply("Invalid value for Remove Message Setting")                    
+                    }
                 }
             })
         
             this.botApiProcessor.action(`${rule.type}RuleRemoveMessageDisable`, (ctx) => {
-                this.lastConfigRule = ''
-                if (this.botConfigurator.processRemoveMessageRule(rule.type, 'off')) {
-                    ctx.reply("Remove Message Setting is set to Disabled")
-                } else {
-                    ctx.reply("Invalid value for Remove Message Setting")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    if (this.botConfigurator.processRemoveMessageRule(rule.type, 'off')) {
+                        ctx.reply("Remove Message Setting is set to Disabled")
+                    } else {
+                        ctx.reply("Invalid value for Remove Message Setting")                    
+                    }
                 }
             })
 
 
             this.botApiProcessor.action(`${rule.type}RuleBanUser`, (ctx) => {
-                this.lastConfigRule = ''
-                let banUserMenu
-                let currentStatus = ''
-                let warnings = this.botConfigurator.getConfiguration().rules[rule.type].banUser
-    
-                if (warnings == 0) {
-                    currentStatus = 'Ban Immediately'
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = ''
+                    let banUserMenu
+                    let currentStatus = ''
+                    let warnings = this.botConfigurator.getConfiguration().rules[rule.type].banUser
+        
+                    if (warnings == 0) {
+                        currentStatus = 'Ban Immediately'
 
-                    banUserMenu = Telegraf.Extra
-                        .markdown()
-                        .markup((m) => m.inlineKeyboard([
-                            [m.callbackButton('Disable', `${rule.type}RuleBanUserDisable`)],
-                            [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
-                            [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
-                        ]).resize());
+                        banUserMenu = Telegraf.Extra
+                            .markdown()
+                            .markup((m) => m.inlineKeyboard([
+                                [m.callbackButton('Disable', `${rule.type}RuleBanUserDisable`)],
+                                [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
+                                [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
+                            ]).resize());
 
-                } else if (warnings == -1) {
-                    currentStatus = 'Disabled'
+                    } else if (warnings == -1) {
+                        currentStatus = 'Disabled'
 
-                    banUserMenu = Telegraf.Extra
-                        .markdown()
-                        .markup((m) => m.inlineKeyboard([
-                            [m.callbackButton('Ban Immediately', `${rule.type}RuleBanUserImmediately`)],
-                            [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
-                            [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
-                        ]).resize());
+                        banUserMenu = Telegraf.Extra
+                            .markdown()
+                            .markup((m) => m.inlineKeyboard([
+                                [m.callbackButton('Ban Immediately', `${rule.type}RuleBanUserImmediately`)],
+                                [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
+                                [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
+                            ]).resize());
+                        
+                    } else {
+                        currentStatus = `Ban after ${warnings} warnings`
+
+                        banUserMenu = Telegraf.Extra
+                            .markdown()
+                            .markup((m) => m.inlineKeyboard([
+                                [m.callbackButton('Disable', `${rule.type}RuleBanUserDisable`)],
+                                [m.callbackButton('Ban Immediatelly', `${rule.type}RuleBanUserImmediately`)],
+                                [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
+                                [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
+                            ]).resize());
                     
-                } else {
-                    currentStatus = `Ban after ${warnings} warnings`
-
-                    banUserMenu = Telegraf.Extra
-                        .markdown()
-                        .markup((m) => m.inlineKeyboard([
-                            [m.callbackButton('Disable', `${rule.type}RuleBanUserDisable`)],
-                            [m.callbackButton('Ban Immediatelly', `${rule.type}RuleBanUserImmediately`)],
-                            [m.callbackButton('Warn before banning', `${rule.type}RuleBanUserWarn`)],
-                            [m.callbackButton(`Back to ${rule.title} Menu`, `${rule.type}`)]
-                        ]).resize());
-                
+                    }
+                    ctx.reply(`Ban User Setting is ${currentStatus}`, banUserMenu)
                 }
-                ctx.reply(`Ban User Setting is ${currentStatus}`, banUserMenu)
             })
             
             this.botApiProcessor.action(`${rule.type}RuleBanUserImmediately`, (ctx) => {
-                if (this.botConfigurator.processBanUserRule(rule.type, '0')) {
-                    ctx.reply("Ban User Setting is set to Ban Immediately")
-                } else {
-                    ctx.reply("Invalid value for Ban User Setting Warning")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    if (this.botConfigurator.processBanUserRule(rule.type, '0')) {
+                        ctx.reply("Ban User Setting is set to Ban Immediately")
+                    } else {
+                        ctx.reply("Invalid value for Ban User Setting Warning")                    
+                    }
                 }
             })
         
             this.botApiProcessor.action(`${rule.type}RuleBanUserDisable`, (ctx) => {
-                if (this.botConfigurator.processBanUserRule(rule.type, '-1')) {
-                    ctx.reply("Ban User Setting is set to Disabled")
-                } else {
-                    ctx.reply("Invalid value for Ban User Setting Warning")                    
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    if (this.botConfigurator.processBanUserRule(rule.type, '-1')) {
+                        ctx.reply("Ban User Setting is set to Disabled")
+                    } else {
+                        ctx.reply("Invalid value for Ban User Setting Warning")                    
+                    }
                 }
             })            
 
             this.botApiProcessor.action(`${rule.type}RuleBanUserWarn`, (ctx) => {
-                this.lastConfigRule = rule.type
-                ctx.reply("Enter Number of Warnings")                
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = rule.type
+                    ctx.reply("Enter Number of Warnings")                
+                }
             })            
             
         })
 
 
         this.botApiProcessor.action('badWords', (ctx) => {
-            let currentWords = this.botConfigurator.getConfiguration().badWords
-            currentWords = currentWords.replace("(", "").replace(")", "").split("|").join(", ")
+            if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                let currentWords = this.botConfigurator.getConfiguration().badWords
+                currentWords = currentWords.replace("(", "").replace(")", "").split("|").join(", ")
 
-            let badWordsMenu = Telegraf.Extra
-                .markdown()
-                .markup((m) => m.inlineKeyboard([
-                    [m.callbackButton('Add Word/Phrase', 'badWordsSetWord')],
-                    [m.callbackButton('Remove Word/Phrase', 'badWordsUnsetWord')],
-                    [m.callbackButton('Back to Main Menu', 'mainMenu')]
-                ]).resize());
-        
-            this.lastConfigRule = ''
-            ctx.reply(`Current Banned Word/Phrase(s) are ${currentWords}`, badWordsMenu)
+                let badWordsMenu = Telegraf.Extra
+                    .markdown()
+                    .markup((m) => m.inlineKeyboard([
+                        [m.callbackButton('Add Word/Phrase', 'badWordsSetWord')],
+                        [m.callbackButton('Remove Word/Phrase', 'badWordsUnsetWord')],
+                        [m.callbackButton('Back to Main Menu', 'mainMenu')]
+                    ]).resize());
+            
+                this.lastConfigRule = ''
+                ctx.reply(`Current Banned Word/Phrase(s) are ${currentWords}`, badWordsMenu)
+            }
         })
         
         this.botApiProcessor.action('badWordsSetWord', (ctx) => {
-            this.lastConfigRule = 'badWordsSet'
-            ctx.reply("Enter Word/Phrase(s) to add delimited with comma")                
+            if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                this.lastConfigRule = 'badWordsSet'
+                ctx.reply("Enter Word/Phrase(s) to add delimited with comma")                
+            }
         })
 
         this.botApiProcessor.action('badWordsUnsetWord', (ctx) => {
-            this.lastConfigRule = 'badWordsUnset'
-            ctx.reply("Enter Word/Phrase(s) to remove delimited with comma")                
+            if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                this.lastConfigRule = 'badWordsUnset'
+                ctx.reply("Enter Word/Phrase(s) to remove delimited with comma")                
+            }
         })
 
 
         this.botApiProcessor.action('replyMessages', (ctx) => {
-            let currentWords = this.botConfigurator.getConfiguration().badWords
-            currentWords = currentWords.replace("(", "").replace(")", "").split("|").join(", ")
+            if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                let currentWords = this.botConfigurator.getConfiguration().badWords
+                currentWords = currentWords.replace("(", "").replace(")", "").split("|").join(", ")
 
-            let replyMessagesMenu = Telegraf.Extra
-                .markdown()
-                .markup((m) => m.inlineKeyboard([
-                    [m.callbackButton('Inappropriate Content Message', 'inappropriateContentReplyMessage')],
-                    [m.callbackButton('Wallet Address / Private Key Message', 'walletKeyReplyMessage')],
-                    [m.callbackButton('Posting Image Message', 'imageReplyMessage')],
-                    [m.callbackButton('Posting Video Message', 'videoReplyMessage')],
-                    [m.callbackButton('Posting Audio Message', 'audioReplyMessage')],
-                    [m.callbackButton('Posting URL Message', 'urlReplyMessage')],
-                    [m.callbackButton('Warning to Member', 'warningReplyMessage')]
-                ]).resize());
-        
-            this.lastConfigRule = ''
-            ctx.reply("Reply Messages", replyMessagesMenu)
+                let replyMessagesMenu = Telegraf.Extra
+                    .markdown()
+                    .markup((m) => m.inlineKeyboard([
+                        [m.callbackButton('Inappropriate Content Message', 'inappropriateContentReplyMessage')],
+                        [m.callbackButton('Wallet Address / Private Key Message', 'walletKeyReplyMessage')],
+                        [m.callbackButton('Posting Image Message', 'imageReplyMessage')],
+                        [m.callbackButton('Posting Video Message', 'videoReplyMessage')],
+                        [m.callbackButton('Posting Audio Message', 'audioReplyMessage')],
+                        [m.callbackButton('Posting URL Message', 'urlReplyMessage')],
+                        [m.callbackButton('Warning to Member', 'warningReplyMessage')]
+                    ]).resize());
+            
+                this.lastConfigRule = ''
+                ctx.reply("Reply Messages", replyMessagesMenu)
+            }
         })
  
         replyMessages.forEach(replyMessage => {
             this.botApiProcessor.action(`${replyMessage.type}`, (ctx) => {
-                this.lastConfigRule = replyMessage.type
-        		ctx.reply(`Current Reply Message is: ${this.botConfigurator.getConfiguration().replyMessages[replyMessage.type.replace('ReplyMessage', '')]}. \n\nEnter new Reply Message`)
+                if (this.isAdminMessage(ctx.update.callback_query.from.id)) {  
+                    this.lastConfigRule = replyMessage.type
+                    ctx.reply(`Current Reply Message is: ${this.botConfigurator.getConfiguration().replyMessages[replyMessage.type.replace('ReplyMessage', '')]}. \n\nEnter new Reply Message`)
+                }
             })    
         })
     }
 
-    private connectToDatabase() {
-        createConnection({
-            type: 'mysql',
-            host: this.botConfigurator.getConfiguration().database.hostname,
-            username: this.botConfigurator.getConfiguration().database.username,
-            password: this.botConfigurator.getConfiguration().database.password,
-            database: this.botConfigurator.getConfiguration().database.database,
-            port: this.botConfigurator.getConfiguration().database.port,
-            insecureAuth : true,
-            entities: [ChatMember, MemberHistory]
-        }).then( connection => {
+    private connectToDatabase() {	
+        let connectionOptions = this.botConfigurator.getConfiguration().database[this.botConfigurator.getConfiguration().database.useDatabase.toLowerCase()]
+        connectionOptions.insecureAuth = true;
+        connectionOptions.entities = [ChatMember, MemberHistory];
+
+        createConnection(connectionOptions
+        ).then( connection => {
             this.dbConnection = connection 
 		    this.botMessage.displayMessage("Successfully connected to database")
         }).catch(function(e) {
