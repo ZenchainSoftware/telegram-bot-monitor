@@ -4,6 +4,9 @@
   "version": "0.0.1",
   "author": "Zenchain",
   "private": true,
+  "scripts": {
+    "start": "node node_modules/ts-node/dist/bin.js src/bot.ts"
+  },
   "dependencies": {
     "@types/node": "^9.4.6",
     "@types/reflect-metadata": "^0.1.0",
